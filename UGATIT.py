@@ -63,7 +63,7 @@ class UGATIT:
         self.img_ch = args.img_ch
 
         self.device = args.device
-        self.devs = [mx.cpu()] if self.device == 'cpu' else [mx.gpu(args.gpu)]
+        self.dev = mx.cpu() if self.device == 'cpu' else mx.gpu(args.gpu)
         self.benchmark_flag = args.benchmark_flag
         self.resume = args.resume
 
@@ -127,7 +127,7 @@ class UGATIT:
         """ Initialize Parameters"""
         for block in self.whole_model:
             block.initialize()
-            block.collect_params().reset_ctx(self.devs)
+            block.collect_params().reset_ctx(self.dev)
 
         """ Trainer """
         self.G_optim = gluon.Trainer(
@@ -178,8 +178,8 @@ class UGATIT:
             except:
                 trainB_iter = iter(self.trainB_loader)
                 real_B, _ = next(trainB_iter)
-            real_A = real_A.as_in_context(self.devs)
-            real_B = real_B.as_in_context(self.devs)
+            real_A = real_A.as_in_context(self.dev)
+            real_B = real_B.as_in_context(self.dev)
 
             with autograd.record():
                 # Update D
@@ -280,8 +280,8 @@ class UGATIT:
                         trainB_iter = iter(self.trainB_loader)
                         real_B, _ = trainB_iter.next()
 
-                    real_A = real_A.as_in_context(self.devs)
-                    real_B = real_B.as_in_context(self.devs)
+                    real_A = real_A.as_in_context(self.dev)
+                    real_B = real_B.as_in_context(self.dev)
 
                     fake_A2B, _, fake_A2B_heatmap = self.genA2B(real_A)
                     fake_B2A, _, fake_B2A_heatmap = self.genB2A(real_B)
@@ -321,8 +321,8 @@ class UGATIT:
                         testB_iter = iter(self.testB_loader)
                         real_B, _ = testB_iter.next()
 
-                    real_A = real_A.as_in_context(self.devs)
-                    real_B = real_B.as_in_context(self.devs)
+                    real_A = real_A.as_in_context(self.dev)
+                    real_B = real_B.as_in_context(self.dev)
 
                     fake_A2B, _, fake_A2B_heatmap = self.genA2B(real_A)
                     fake_B2A, _, fake_B2A_heatmap = self.genB2A(real_B)
@@ -365,9 +365,9 @@ class UGATIT:
         self.D_optim.save_states(model_name + '.D_optim')
 
     def _load_impl(self, model_name):
-        self.whole_model.load_parameters(model_name, ctx=self.devs)
-        self.G_optim.load_states(model_name + '.G_optim', ctx=self.devs)
-        self.D_optim.load_states(model_name + '.D_optim', ctx=self.devs)
+        self.whole_model.load_parameters(model_name, ctx=self.dev)
+        self.G_optim.load_states(model_name + '.G_optim', ctx=self.dev)
+        self.D_optim.load_states(model_name + '.D_optim', ctx=self.dev)
 
     def save(self, dir_name, step):
         model_name = os.path.join(dir_name, self.dataset + '_params_%07d.params' % step)

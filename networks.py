@@ -216,6 +216,7 @@ class ILN(nn.HybridBlock):
 EPSILON = 1e-08
 POWER_ITERATION = 1
 
+""" The implementation of Spectral Norm is adapted from https://github.com/apache/incubator-mxnet/tree/master/example/gluon/sn_gan """
 def _spectral_norm(F, w, u, iterations):
     """ spectral normalization """
     w_mat = w.reshape((0, -1))
