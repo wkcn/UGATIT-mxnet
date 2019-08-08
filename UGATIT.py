@@ -121,9 +121,11 @@ class UGATIT:
         self.L1_loss = gloss.L1Loss()
         self.MSE_loss = gloss.L2Loss()
         self.BCE_loss = gloss.SigmoidBCELoss()
+        self.whole_model = nn.HybridSequential()
+        self.whole_model.add(*[self.genA2B, self.genB2A, self.disGA, self.disGB, self.disLA, self.disLB])
 
         """ Initialize Parameters"""
-        for block in [self.genA2B, self.genB2A, self.disGA, self.disGB, self.disLA, self.disLB]:
+        for block in self.whole_model:
             block.initialize()
             block.collect_params().reset_ctx(self.devs)
 
@@ -140,6 +142,8 @@ class UGATIT:
                 param_dicts_merge(
                     self.disGA.collect_params(),
                     self.disGB.collect_params(),
+                    self.disLA.collect_params(),
+                    self.disLB.collect_params()
                     ),
                 'adam',
                 dict(learning_rate=self.lr, beta1=0.5, beta2=0.999, wd=self.weight_decay),
@@ -153,7 +157,7 @@ class UGATIT:
         start_iter = 1
 
         if self.resume:
-            raise NotImplementedError("TODO")
+            self._load_impl(self.resume)
 
         # training loop
         print('training start !')
@@ -352,39 +356,26 @@ class UGATIT:
                 self.save(os.path.join(self.result_dir, self.dataset, 'model'), step)
 
             if step % 1000 == 0:
-                params = {}
-                # TODO
+                model_name = os.path.join(self.result_dir, self.dataset + '_latest.params')
+                self._save_impl(model_name)
 
-                '''
-                params['genA2B'] = self.genA2B.state_dict()
-                params['genB2A'] = self.genB2A.state_dict()
-                params['disGA'] = self.disGA.state_dict()
-                params['disGB'] = self.disGB.state_dict()
-                params['disLA'] = self.disLA.state_dict()
-                params['disLB'] = self.disLB.state_dict()
-                '''
-                # save(params, os.path.join(self.result_dir, self.dataset + '_params_latest.params'))
+    def _save_impl(self, model_name):
+        self.whole_model.save_parameters(model_name)
+        self.G_optim.save_states(model_name + '.G_optim')
+        self.D_optim.save_states(model_name + '.D_optim')
 
-    def save(self, dir, step):
-        raise NotImplementedError()
-        params = {}
-        params['genA2B'] = self.genA2B.state_dict()
-        params['genB2A'] = self.genB2A.state_dict()
-        params['disGA'] = self.disGA.state_dict()
-        params['disGB'] = self.disGB.state_dict()
-        params['disLA'] = self.disLA.state_dict()
-        params['disLB'] = self.disLB.state_dict()
-        save(params, os.path.join(dir, self.dataset + '_params_%07d.params' % step))
+    def _load_impl(self, model_name):
+        self.whole_model.load_parameters(model_name, ctx=self.devs)
+        self.G_optim.load_states(model_name + '.G_optim', ctx=self.devs)
+        self.D_optim.load_states(model_name + '.D_optim', ctx=self.devs)
 
-    def load(self, dir, step):
-        raise NotImplementedError()
-        params = load(os.path.join(dir, self.dataset + '_params_%07d.params' % step))
-        self.genA2B.load_state_dict(params['genA2B'])
-        self.genB2A.load_state_dict(params['genB2A'])
-        self.disGA.load_state_dict(params['disGA'])
-        self.disGB.load_state_dict(params['disGB'])
-        self.disLA.load_state_dict(params['disLA'])
-        self.disLB.load_state_dict(params['disLB'])
+    def save(self, dir_name, step):
+        model_name = os.path.join(dir_name, self.dataset + '_params_%07d.params' % step)
+        self._save_impl(model_name)
+
+    def load(self, dir_name, step):
+        model_name = os.path.join(dir_name, self.dataset + '_params_%07d.params' % step)
+        self._load_impl(model_name)
 
     def test(self):
         raise NotImplementedError()
