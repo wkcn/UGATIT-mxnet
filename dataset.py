@@ -1,6 +1,5 @@
+import mxnet as mx
 from mxnet.gluon import data
-
-from PIL import Image
 
 import os
 import os.path
@@ -88,15 +87,8 @@ class DatasetFolder(data.Dataset):
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif']
 
 
-def pil_loader(path):
-    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
-    with open(path, 'rb') as f:
-        img = Image.open(f)
-        return img.convert('RGB')
-
-
 def default_loader(path):
-    return pil_loader(path)
+    return mx.image.imread(path)
 
 
 class ImageFolder(DatasetFolder):
