@@ -335,4 +335,5 @@ class RhoClipper(object):
         if hasattr(module, 'rho'):
             w = module.rho.data()
             w = w.clip(self.clip_min, self.clip_max)
-            module.rho.data()[:] = w
+            with autograd.pause():
+                module.rho.data()[:] = w

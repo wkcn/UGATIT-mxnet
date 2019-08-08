@@ -155,6 +155,7 @@ class UGATIT:
 
         # training loop
         print('training start !')
+        start_time = time.time()
         for step in range(start_iter, self.iteration + 1):
             if self.decay_flag and step > (self.iteration // 2):
                 self.G_optim.set_learning_rate(self.G_optim.learning_rate - self.lr / (self.iteration // 2))
@@ -201,8 +202,9 @@ class UGATIT:
 
                 Discriminator_loss = D_loss_A + D_loss_B
                 Discriminator_loss.backward()
-                self.D_optim.step(1)
+            self.D_optim.step(1)
 
+            with autograd.record():
                 # Update G
 
                 fake_A2B, fake_A2B_cam_logit, _ = self.genA2B(real_A)
@@ -242,13 +244,14 @@ class UGATIT:
 
                 Generator_loss = G_loss_A + G_loss_B
                 Generator_loss.backward()
-                self.G_optim.step()
+            self.G_optim.step(1)
 
             # clip parameter of AdaILN and ILN, applied after optimizer step
             self.genA2B.apply(self.Rho_clipper)
             self.genB2A.apply(self.Rho_clipper)
 
-            print("[%5d/%5d] time: %4.4f d_loss: %.8f, g_loss: %.8f" % (step, self.iteration, time.time() - start_time, Discriminator_loss, Generator_loss))
+            mx.nd.waitall()
+            print("[%5d/%5d] time: %4.4f d_loss: %.8f, g_loss: %.8f" % (step, self.iteration, time.time() - start_time, Discriminator_loss.asscalar(), Generator_loss.asscalar()))
 
             if step % self.print_freq == 0:
                 train_sample_num = 5
