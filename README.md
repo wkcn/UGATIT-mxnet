@@ -77,7 +77,7 @@ The results of the paper came from the **Tensorflow code**
 </div>
 
 ## Citation
-If you find this code useful for your research, please cite our paper:
+If you find this code useful for your research, please cite the paper:
 
 ```
 @misc{kim2019ugatit,
