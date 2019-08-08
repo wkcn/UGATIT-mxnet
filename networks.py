@@ -1,18 +1,24 @@
 import mxnet as mx
 import numpy as np
+from mxnet import autograd
 from mxnet.gluon import nn
 
 def var(x, dim, keepdims=False, unbiased=True):
     s = (x - x.mean(dim, keepdims=True)).square().sum(dim, keepdims=keepdims)
-    if isinstance(dim, (list, tuple)):
-        n = np.prod([x.shape[d] for d in dim])
-    else:
-        n = x.shape[dim]
-    if unbiased:
-        s = s / (n - 1)
-    else:
-        s = s / n
-    return s
+    with autograd.pause():
+        shape = x.shape_array()
+        if isinstance(dim, (list, tuple)):
+            n = mx.nd.prod(mx.nd.concat(*[shape[d] for d in dim], dim=0))
+        else:
+            n = shape[dim]
+        if unbiased:
+            n = n - 1
+        if isinstance(n, mx.nd.NDArray):
+            F = mx.nd
+        else:
+            F = mx.sym
+        n = F.cast(n, np.float32)
+    return s / n
 
 
 class ResnetGenerator(nn.HybridBlock):
@@ -210,22 +216,21 @@ class ILN(nn.HybridBlock):
 EPSILON = 1e-08
 POWER_ITERATION = 1
 
-def _spectral_norm(w, u, iterations):
+def _spectral_norm(F, w, u, iterations):
     """ spectral normalization """
-    w_mat = mx.nd.reshape(w, [w.shape[0], -1])
+    w_mat = w.reshape((0, -1))
 
     _u = u
     _v = None
 
     for _ in range(iterations):
-        _v = mx.nd.L2Normalization(nd.dot(_u, w_mat))
-        _u = mx.nd.L2Normalization(nd.dot(_v, w_mat.T))
+        _v = F.L2Normalization(F.dot(_u, w_mat))
+        _u = F.L2Normalization(F.dot(_v, w_mat.transpose()))
 
-    sigma = mx.nd.sum(mx.nd.dot(_u, w_mat) * _v)
-    if sigma == 0.:
-        sigma = EPSILON
+    sigma = (F.dot(_u, w_mat) * _v).sum()
+    sigma = F.maximum(sigma, EPSILON)
 
-    with mx.autograd.pause():
+    with autograd.pause():
         u[:] = _u
 
     return w / sigma
@@ -239,16 +244,23 @@ def _register_spectral_norm(name, cls):
         self.extra_u = self.params.get('extra_u', init=mx.init.Normal(), shape=(1, self.weight.shape[0]))
 
 
-    def hybrid_forward(self, F, x, weight, *args):
-        extra_u = args.pop()
-        weight = _spectral_norm(weight, extra_u, self.iterations)
-        self._parent_cls.hybrid_forward(F, x, weight, *args)
+    def forward(self, x): #, weight, bias, extra_u):
+        F = mx.nd
+        weight = self.weight.data()
+        bias = self.bias.data() if self.bias is not None else None
+        extra_u = self.extra_u.data()
+        weight_norm = _spectral_norm(F, weight, extra_u, self.iterations)
+        if bias is not None:
+            return self._parent_cls.hybrid_forward(F, x, weight_norm, bias)
+        else:
+            return self._parent_cls.hybrid_forward(F, x, weight_norm)
 
     inst_dict = dict(
         __init__=__init__,
-        hybrid_forward=hybrid_forward
+        # hybrid_forward=hybrid_forward
+        forward=forward,
     )
-    inst = type(name, (cls, ), inst_dict) 
+    inst = type(name, (cls, ), inst_dict)
     globals()[name] = inst
 
 _register_spectral_norm('SNConv2D', nn.Conv2D)
@@ -259,29 +271,29 @@ class Discriminator(nn.HybridBlock):
     def __init__(self, input_nc, ndf=64, n_layers=5):
         super(Discriminator, self).__init__()
         model = [nn.ReflectionPad2D(1),
-                 SNConv2D(ndf, kernel_size=4, strides=2, padding=0, use_bias=True),
+                 SNConv2D(ndf, kernel_size=4, strides=2, padding=0, use_bias=True, in_channels=input_nc),
                  nn.LeakyReLU(0.2)]
 
         for i in range(1, n_layers - 2):
             mult = 2 ** (i - 1)
             model += [nn.ReflectionPad2D(1),
-                      SNConv2D(ndf * mult * 2, kernel_size=4, strides=2, padding=0, use_bias=True),
+                      SNConv2D(ndf * mult * 2, kernel_size=4, strides=2, padding=0, use_bias=True, in_channels=ndf * mult),
                       nn.LeakyReLU(0.2)]
 
         mult = 2 ** (n_layers - 2 - 1)
         model += [nn.ReflectionPad2D(1),
-                  SNConv2D(ndf * mult * 2, kernel_size=4, strides=1, padding=0, use_bias=True),
+                  SNConv2D(ndf * mult * 2, kernel_size=4, strides=1, padding=0, use_bias=True, in_channels=ndf * mult),
                   nn.LeakyReLU(0.2)]
 
         # Class Activation Map
         mult = 2 ** (n_layers - 2)
-        self.gap_fc = SNDense(1, use_bias=False)
-        self.gmp_fc = SNDense(1, use_bias=False)
+        self.gap_fc = SNDense(1, use_bias=False, in_units=ndf * mult)
+        self.gmp_fc = SNDense(1, use_bias=False, in_units=ndf * mult)
         self.conv1x1 = nn.Conv2D(ndf * mult, kernel_size=1, strides=1, use_bias=True)
         self.leaky_relu = nn.LeakyReLU(0.2)
 
         self.pad = nn.ReflectionPad2D(1)
-        self.conv = SNConv2D(1, kernel_size=4, strides=1, padding=0, use_bias=False)
+        self.conv = SNConv2D(1, kernel_size=4, strides=1, padding=0, use_bias=False, in_channels=ndf * mult)
 
         self.model = nn.HybridSequential()
         self.model.add(*model)

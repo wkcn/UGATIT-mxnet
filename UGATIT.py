@@ -122,7 +122,7 @@ class UGATIT:
         self.BCE_loss = gloss.SigmoidBCELoss()
 
         """ Initialize Parameters"""
-        for block in [self.genA2B, self.genB2A, self.disGA, self.disGB]:
+        for block in [self.genA2B, self.genB2A, self.disGA, self.disGB, self.disLA, self.disLB]:
             block.initialize()
 
         """ Trainer """
@@ -201,7 +201,7 @@ class UGATIT:
 
                 Discriminator_loss = D_loss_A + D_loss_B
                 Discriminator_loss.backward()
-                self.D_optim.step()
+                self.D_optim.step(1)
 
                 # Update G
 
