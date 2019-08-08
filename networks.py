@@ -4,10 +4,11 @@ from mxnet.gluon import nn
 
 def var(x, dim, keepdims=False, unbiased=True):
     s = (x - x.mean(dim, keepdims=True)).square().sum(dim, keepdims=keepdims)
+    n = x.shape[dim]
     if unbiased:
-        s /= (len(x) - 1)
+        s /= n - 1
     else:
-        s /= len(x)
+        s /= n
     return s
 
 
@@ -231,12 +232,13 @@ def _register_spectral_norm(name, cls):
     def __init__(self, *args, **kwargs):
         self._parent_cls = super(self.__class__, self)
         self._parent_cls.__init__(*args, **kwargs)
-        self.iterations = POWER_ITERATION 
+        self.iterations = POWER_ITERATION
         self.extra_u = self.params.get('extra_u', init=mx.init.Normal(), shape=(1, self.weight.shape[0]))
 
 
-    def hybrid_forward(self, F, x, weight, extra_u, *args):
-        weight = _spectral_norm(weight, extra_u, self.iterations) 
+    def hybrid_forward(self, F, x, weight, *args):
+        extra_u = args.pop()
+        weight = _spectral_norm(weight, extra_u, self.iterations)
         self._parent_cls.hybrid_forward(F, x, weight, *args)
 
     inst_dict = dict(
@@ -276,9 +278,10 @@ class Discriminator(nn.HybridBlock):
         self.leaky_relu = nn.LeakyReLU(0.2)
 
         self.pad = nn.ReflectionPad2D(1)
-        self.conv = SNConv2D(ndf * mult, 1, kernel_size=4, strides=1, padding=0, use_bias=False)
+        self.conv = SNConv2D(1, kernel_size=4, strides=1, padding=0, use_bias=False)
 
-        self.model = nn.Sequential(*model)
+        self.model = nn.HybridSequential()
+        self.model.add(*model)
 
     def hybrid_forward(self, F, input):
         x = self.model(input)

@@ -10,12 +10,19 @@ from mxnet.gluon.data.dataloader import DataLoader
 import os
 import logging
 import random
-import itertools
 import time
 
 from dataset import ImageFolder
 from networks import *
 from utils import *
+
+
+def param_dicts_merge(*args):
+    pdict = gluon.parameter.ParameterDict()
+    for a in args:
+        pdict.update(a)
+    return pdict
+
 
 class UGATIT:
     def __init__(self, args):
@@ -114,29 +121,35 @@ class UGATIT:
         self.MSE_loss = gloss.L2Loss()
         self.BCE_loss = gloss.SigmoidBCELoss()
 
+        """ Initialize Parameters"""
+        for block in [self.genA2B, self.genB2A, self.disGA, self.disGB]:
+            block.initialize()
+
         """ Trainer """
         self.G_optim = gluon.Trainer(
-                itertools.chain(
+                param_dicts_merge(
                     self.genA2B.collect_params(),
                     self.genB2A.collect_params(),
                     ),
                 'adam',
-                dict(lr=self.lr, beta1=0.5, bata2=0.999, wd=self.weight_decay),
+                dict(learning_rate=self.lr, beta1=0.5, beta2=0.999, wd=self.weight_decay),
                )
         self.D_optim = gluon.Trainer(
-                itertools.chain(
+                param_dicts_merge(
                     self.disGA.collect_params(),
                     self.disGB.collect_params(),
                     ),
                 'adam',
-                dict(lr=self.lr, beta1=0.5, bata2=0.999, wd=self.weight_decay),
+                dict(learning_rate=self.lr, beta1=0.5, beta2=0.999, wd=self.weight_decay),
                 )
 
+
         """ Define Rho clipper to constraint the value of rho in AdaILN and ILN"""
-        self.Rho_clipper = Rho_clipper(0, 1)
+        self.Rho_clipper = RhoClipper(0, 1)
 
     def train(self):
         start_iter = 1
+
         if self.resume:
             raise NotImplementedError("TODO")
 
@@ -148,16 +161,16 @@ class UGATIT:
                 self.D_optim.set_learning_rate(self.D_optim.learning_rate - self.lr / (self.iteration // 2))
 
             try:
-                real_A, _ = trainA_iter.next()
+                real_A, _ = next(trainA_iter)
             except:
                 trainA_iter = iter(self.trainA_loader)
-                real_A, _ = trainA_iter.next()
+                real_A, _ = next(trainA_iter)
 
             try:
-                real_B, _ = trainB_iter.next()
+                real_B, _ = next(trainB_iter)
             except:
                 trainB_iter = iter(self.trainB_loader)
-                real_B, _ = trainB_iter.next()
+                real_B, _ = next(trainB_iter)
 
             with autograd.record():
                 # Update D
