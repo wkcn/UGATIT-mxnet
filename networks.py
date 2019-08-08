@@ -59,16 +59,10 @@ class ResnetGenerator(nn.HybridBlock):
         self.relu = nn.Activation('relu')
 
         # Gamma, Beta block
-        if self.light:
-            FC = [nn.Dense(ngf * mult, use_bias=False),
-                  nn.Activation('relu'),
-                  nn.Dense(ngf * mult, use_bias=False),
-                  nn.Activation('relu')]
-        else:
-            FC = [nn.Dense(ngf * mult, use_bias=False),
-                  nn.Activation('relu'),
-                  nn.Dense(ngf * mult, use_bias=False),
-                  nn.Activation('relu')]
+        FC = [nn.Dense(ngf * mult, use_bias=False),
+              nn.Activation('relu'),
+              nn.Dense(ngf * mult, use_bias=False),
+              nn.Activation('relu')]
         self.gamma = nn.Dense(ngf * mult, use_bias=False)
         self.beta = nn.Dense(ngf * mult, use_bias=False)
 
