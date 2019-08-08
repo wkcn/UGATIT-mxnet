@@ -86,7 +86,7 @@ class ResnetGenerator(nn.HybridBlock):
         self.FC = nn.HybridSequential()
         self.FC.add(*FC)
         self.UpBlock2 = nn.HybridSequential()
-        self.UpBlock2.add(UpBlock2)
+        self.UpBlock2.add(*UpBlock2)
 
     def hybrid_forward(self, F, input):
         x = self.DownBlock(input)
@@ -190,7 +190,7 @@ class ILN(nn.HybridBlock):
         self.eps = eps
         self.rho = self.params.get('rho', shape=(1, num_features, 1, 1), init=mx.init.Constant(0.0))
         self.gamma = self.params.get('gamma', shape=(1, num_features, 1, 1), init=mx.init.Constant(1.0))
-        self.beta = self.params.get('rho', shape=(1, num_features, 1, 1), init=mx.init.Constant(0.0))
+        self.beta = self.params.get('beta', shape=(1, num_features, 1, 1), init=mx.init.Constant(0.0))
 
     def hybrid_forward(self, F, input, rho, gamma, beta):
         in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
@@ -230,7 +230,7 @@ def _register_spectral_norm(name, cls):
 
     def __init__(self, *args, **kwargs):
         self._parent_cls = super(self.__class__, self)
-        self._parent_cls.__init__(**kwargs)
+        self._parent_cls.__init__(*args, **kwargs)
         self.iterations = POWER_ITERATION 
         self.extra_u = self.params.get('extra_u', init=mx.init.Normal(), shape=(1, self.weight.shape[0]))
 
