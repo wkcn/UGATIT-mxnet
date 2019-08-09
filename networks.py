@@ -179,9 +179,11 @@ class adaILN(nn.HybridBlock):
         self.rho = self.params.get('rho', shape=(1, num_features, 1, 1), init=mx.init.Constant(0.9))
 
     def hybrid_forward(self, F, input, gamma, beta, rho):
-        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
+        # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
+        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(var(input, 2, keepdims=True), 3, keepdims=True)
         out_in = (input - in_mean) / F.sqrt(in_var + self.eps)
-        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
+        # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
+        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
         out_ln = (input - ln_mean) / F.sqrt(ln_var + self.eps)
         out = rho * out_in + (1 - rho) * out_ln
         out = out * gamma.reshape((0, 0, 1, 1)) + beta.reshape((0, 0, 1, 1))
@@ -198,9 +200,11 @@ class ILN(nn.HybridBlock):
         self.beta = self.params.get('beta', shape=(1, num_features, 1, 1), init=mx.init.Constant(0.0))
 
     def hybrid_forward(self, F, input, rho, gamma, beta):
-        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
+        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(var(input, 2, keepdims=True), 3, keepdims=True)
+        # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
         out_in = (input - in_mean) / F.sqrt(in_var + self.eps)
-        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
+        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
+        # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
         out_ln = (input - ln_mean) / F.sqrt(ln_var + self.eps)
         out = rho * out_in + (1 - rho) * out_ln
         out = out * gamma + beta
@@ -274,7 +278,7 @@ class RhoClipper(object):
     def __call__(self, module):
 
         if hasattr(module, 'rho'):
-            w = module.rho.data()
-            w = w.clip(self.clip_min, self.clip_max)
             with autograd.pause():
+                w = module.rho.data()
+                w = w.clip(self.clip_min, self.clip_max)
                 module.rho.data()[:] = w
