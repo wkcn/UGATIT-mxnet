@@ -122,6 +122,9 @@ class UGATIT:
         self.disLA = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)
         self.disLB = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)
 
+        self.genA2B.hybridize()
+        self.genB2A.hybridize()
+
         """ Define Loss """
         self.L1_loss = gloss.L1Loss()
         self.MSE_loss = gloss.L2Loss()

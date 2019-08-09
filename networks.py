@@ -21,6 +21,17 @@ def var(x, dim, keepdims=False, unbiased=True):
         n = F.cast(n, np.float32)
     return s / n
 
+def _register_record_hook(cls):
+    def _hybrid_forward(self, F, x, weight, bias=None):
+        self._weight = weight
+        self._bias = bias
+        self._old_hybrid_forward(F, x, weight, bias)
+    cls._old_hybrid_forward = cls.hybrid_forward
+    cls.hybrid_forward = _hybrid_forward
+
+_register_record_hook(nn.Dense)
+_register_record_hook(nn.Conv2D)
+
 
 class ResnetGenerator(nn.HybridBlock):
     def __init__(self, input_nc, output_nc, ngf=64, n_blocks=6, img_size=256, light=False):
@@ -98,12 +109,12 @@ class ResnetGenerator(nn.HybridBlock):
 
         gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
         gap_logit = self.gap_fc(gap.reshape((0, -1)))
-        gap_weight = self.gap_fc.weight.data()
+        gap_weight = self.gap_fc._weight
         gap = x * gap_weight.reshape((0, 0, 1, 1))
 
         gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
         gmp_logit = self.gmp_fc(gmp.reshape((0, -1)))
-        gmp_weight = self.gmp_fc.weight.data()
+        gmp_weight = self.gmp_fc._weight
         gmp = x * gmp_weight.reshape((0, 0, 1, 1))
 
         cam_logit = F.concat(*[gap_logit, gmp_logit], dim=1)
@@ -248,12 +259,12 @@ class Discriminator(nn.HybridBlock):
 
         gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
         gap_logit = self.gap_fc(gap.reshape((0, -1)))
-        gap_weight = self.gap_fc.weight.data()
+        gap_weight = self.gap_fc._weight
         gap = x * gap_weight.reshape((0, 0, 1, 1))
 
         gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
         gmp_logit = self.gmp_fc(gmp.reshape((0, -1)))
-        gmp_weight = self.gmp_fc.weight.data()
+        gmp_weight = self.gmp_fc._weight
         gmp = x * gmp_weight.reshape((0, 0, 1, 1))
 
         cam_logit = F.concat(*[gap_logit, gmp_logit], dim=1)
