@@ -42,7 +42,7 @@ The results of the paper came from the **Tensorflow code**
 ```
 > python main.py --dataset selfie2anime
 ```
-* If the memory of gpu is **not sufficient**, set `--light` to True
+* If the memory of gpu is **not sufficient**, set `--light` to 1
 
 ### Test
 ```
