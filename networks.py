@@ -2,6 +2,7 @@ import mxnet as mx
 import numpy as np
 from mxnet import autograd
 from mxnet.gluon import nn
+from spectral_norm import SNConv2D, SNDense
 
 def var(x, dim, keepdims=False, unbiased=True):
     s = (x - x.mean(dim, keepdims=True)).square().sum(dim, keepdims=keepdims)
@@ -205,61 +206,6 @@ class ILN(nn.HybridBlock):
         out = out * gamma + beta
 
         return out
-
-
-EPSILON = 1e-08
-POWER_ITERATION = 1
-
-""" The implementation of Spectral Norm is adapted from https://github.com/apache/incubator-mxnet/tree/master/example/gluon/sn_gan """
-def _spectral_norm(F, w, u, iterations):
-    """ spectral normalization """
-    w_mat = w.reshape((0, -1))
-
-    _u = u
-    _v = None
-
-    for _ in range(iterations):
-        _v = F.L2Normalization(F.dot(_u, w_mat))
-        _u = F.L2Normalization(F.dot(_v, w_mat.transpose()))
-
-    sigma = (F.dot(_u, w_mat) * _v).sum()
-    sigma = F.maximum(sigma, EPSILON)
-
-    with autograd.pause():
-        u[:] = _u
-
-    return w / sigma
-
-def _register_spectral_norm(name, cls):
-
-    def __init__(self, *args, **kwargs):
-        self._parent_cls = super(self.__class__, self)
-        self._parent_cls.__init__(*args, **kwargs)
-        self.iterations = POWER_ITERATION
-        self.extra_u = self.params.get('extra_u', init=mx.init.Normal(), shape=(1, self.weight.shape[0]))
-
-
-    def forward(self, x): #, weight, bias, extra_u):
-        F = mx.nd
-        weight = self.weight.data()
-        bias = self.bias.data() if self.bias is not None else None
-        extra_u = self.extra_u.data()
-        weight_norm = _spectral_norm(F, weight, extra_u, self.iterations)
-        if bias is not None:
-            return self._parent_cls.hybrid_forward(F, x, weight_norm, bias)
-        else:
-            return self._parent_cls.hybrid_forward(F, x, weight_norm)
-
-    inst_dict = dict(
-        __init__=__init__,
-        # hybrid_forward=hybrid_forward
-        forward=forward,
-    )
-    inst = type(name, (cls, ), inst_dict)
-    globals()[name] = inst
-
-_register_spectral_norm('SNConv2D', nn.Conv2D)
-_register_spectral_norm('SNDense', nn.Dense)
 
 
 class Discriminator(nn.HybridBlock):
