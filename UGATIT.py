@@ -130,10 +130,13 @@ class UGATIT:
         self.whole_model.add(*[self.genA2B, self.genB2A, self.disGA, self.disGB, self.disLA, self.disLB])
 
         """ Initialize Parameters"""
-        params = net.collect_params()
+        params = self.whole_model.collect_params()
         for block in self.whole_model:
             block.collect_params('.*?_weight').initialize(KaimingUniform())
             block.collect_params('.*?_bias').initialize(BiasInitializer(params))
+            block.collect_params('.*?_rho').initialize()
+            block.collect_params('.*?_gamma').initialize()
+            block.collect_params('.*?_beta').initialize()
             block.collect_params().reset_ctx(self.dev)
 
         """ Trainer """
