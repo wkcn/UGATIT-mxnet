@@ -1,6 +1,8 @@
 ## U-GAT-IT &mdash; Unofficial MXNet Implementation
 This project is an unofficial MXNet implementation of U-GAT-IT: Unsupervised Generative Attentional Networks with Adaptive Layer-Instance Normalization for Image-to-Image Translation. It is adapted from  [znxlwm/UGATIT-pytorch](https://github.com/znxlwm/UGATIT-pytorch).
 
+### This MXNet implementation works in process. There are still some problems, so I do not recommend you to train it. I will update the README after fixing the bugs. I hope training the LARGE model under 11Gb GPU memory by MXNet's black technology : )
+
 ### : Unsupervised Generative Attentional Networks with Adaptive Layer-Instance Normalization for Image-to-Image Translation
 
 <div align="center">
