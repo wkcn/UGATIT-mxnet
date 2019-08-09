@@ -15,6 +15,7 @@ import time
 from dataset import ImageFolder
 from networks import *
 from utils import *
+from initializer import KaimingUniform, BiasInitializer
 
 
 def param_dicts_merge(*args):
@@ -129,8 +130,10 @@ class UGATIT:
         self.whole_model.add(*[self.genA2B, self.genB2A, self.disGA, self.disGB, self.disLA, self.disLB])
 
         """ Initialize Parameters"""
+        params = net.collect_params()
         for block in self.whole_model:
-            block.initialize()
+            block.collect_params('.*?_weight').initialize(KaimingUniform())
+            block.collect_params('.*?_bias').initialize(BiasInitializer(params))
             block.collect_params().reset_ctx(self.dev)
 
         """ Trainer """
