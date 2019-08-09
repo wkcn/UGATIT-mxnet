@@ -68,6 +68,7 @@ class UGATIT:
         self.resume = args.resume
 
         print("##### Information #####")
+        print("# dev : ", self.dev)
         print("# light : ", self.light)
         print("# dataset : ", self.dataset)
         print("# batch_size : ", self.batch_size)

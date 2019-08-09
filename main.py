@@ -8,7 +8,7 @@ def parse_args():
     desc = "MXNet implementation of U-GAT-IT"
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('--phase', type=str, default='train', help='[train / test]')
-    parser.add_argument('--light', type=str2bool, default=False, help='[U-GAT-IT full version / U-GAT-IT light version]')
+    parser.add_argument('--light', type=bool, default=False, help='[U-GAT-IT full version / U-GAT-IT light version]')
     parser.add_argument('--dataset', type=str, default='YOUR_DATASET_NAME', help='dataset_name')
 
     parser.add_argument('--iteration', type=int, default=1000000, help='The number of training iterations')
