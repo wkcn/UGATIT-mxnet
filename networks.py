@@ -97,12 +97,12 @@ class ResnetGenerator(nn.HybridBlock):
         x = self.DownBlock(input)
 
         gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
-        gap_logit = self.gap_fc(gap.reshape((x.shape[0], -1)))
+        gap_logit = self.gap_fc(gap.reshape((0, -1)))
         gap_weight = self.gap_fc.weight.data()
         gap = x * gap_weight.reshape((0, 0, 1, 1))
 
         gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
-        gmp_logit = self.gmp_fc(gmp.reshape((x.shape[0], -1)))
+        gmp_logit = self.gmp_fc(gmp.reshape((0, -1)))
         gmp_weight = self.gmp_fc.weight.data()
         gmp = x * gmp_weight.reshape((0, 0, 1, 1))
 
@@ -114,9 +114,9 @@ class ResnetGenerator(nn.HybridBlock):
 
         if self.light:
             x_ = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
-            x_ = self.FC(x_.reshape((x_.shape[0], -1)))
+            x_ = self.FC(x_.reshape((0, -1)))
         else:
-            x_ = self.FC(x.reshape((x.shape[0], -1)))
+            x_ = self.FC(x.reshape((0, -1)))
         gamma, beta = self.gamma(x_), self.beta(x_)
 
 
@@ -247,12 +247,12 @@ class Discriminator(nn.HybridBlock):
         x = self.model(input)
 
         gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
-        gap_logit = self.gap_fc(gap.reshape((x.shape[0], -1)))
+        gap_logit = self.gap_fc(gap.reshape((0, -1)))
         gap_weight = self.gap_fc.weight.data()
         gap = x * gap_weight.reshape((0, 0, 1, 1))
 
         gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
-        gmp_logit = self.gmp_fc(gmp.reshape((x.shape[0], -1)))
+        gmp_logit = self.gmp_fc(gmp.reshape((0, -1)))
         gmp_weight = self.gmp_fc.weight.data()
         gmp = x * gmp_weight.reshape((0, 0, 1, 1))
 
