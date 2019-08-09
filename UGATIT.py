@@ -283,16 +283,16 @@ class UGATIT:
 
                 for _ in range(train_sample_num):
                     try:
-                        real_A, _ = trainA_iter.next()
+                        real_A, _ = next(trainA_iter)
                     except:
                         trainA_iter = iter(self.trainA_loader)
-                        real_A, _ = trainA_iter.next()
+                        real_A, _ = next(trainA_iter)
 
                     try:
-                        real_B, _ = trainB_iter.next()
+                        real_B, _ = next(trainB_iter)
                     except:
                         trainB_iter = iter(self.trainB_loader)
-                        real_B, _ = trainB_iter.next()
+                        real_B, _ = next(trainB_iter)
 
                     real_A = real_A.as_in_context(self.dev)
                     real_B = real_B.as_in_context(self.dev)
@@ -324,16 +324,16 @@ class UGATIT:
 
                 for _ in range(test_sample_num):
                     try:
-                        real_A, _ = testA_iter.next()
+                        real_A, _ = next(testA_iter)
                     except:
                         testA_iter = iter(self.testA_loader)
                         real_A, _ = testA_iter.next()
 
                     try:
-                        real_B, _ = testB_iter.next()
+                        real_B, _ = next(testB_iter)
                     except:
                         testB_iter = iter(self.testB_loader)
-                        real_B, _ = testB_iter.next()
+                        real_B, _ = next(testB_iter)
 
                     real_A = real_A.as_in_context(self.dev)
                     real_B = real_B.as_in_context(self.dev)
