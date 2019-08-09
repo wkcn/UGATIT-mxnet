@@ -67,6 +67,9 @@ class UGATIT:
         self.benchmark_flag = args.benchmark_flag
         self.resume = args.resume
 
+        if not self.benchmark_flag:
+            os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
+
         print("##### Information #####")
         print("# dev : ", self.dev)
         print("# light : ", self.light)

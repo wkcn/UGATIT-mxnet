@@ -15,7 +15,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=1, help='The size of batch size')
     parser.add_argument('--print_freq', type=int, default=1000, help='The number of image print freq')
     parser.add_argument('--save_freq', type=int, default=100000, help='The number of model save freq')
-    parser.add_argument('--decay_flag', type=str2bool, default=True, help='The decay_flag')
+    parser.add_argument('--decay_flag', type=bool, default=True, help='The decay_flag')
 
     parser.add_argument('--lr', type=float, default=0.0001, help='The learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.0001, help='The weight decay')
@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument('--result_dir', type=str, default='results', help='Directory name to save the results')
     parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'], help='Set gpu mode; [cpu, cuda]')
     parser.add_argument('--gpu', type=int,  default=0, help='The ID of the used GPU')
-    parser.add_argument('--benchmark_flag', type=str2bool, default=False)
+    parser.add_argument('--benchmark_flag', type=bool, default=False)
     parser.add_argument('--resume', type=str, default=False)
 
     return check_args(parser.parse_args())
