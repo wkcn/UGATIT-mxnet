@@ -140,21 +140,23 @@ class UGATIT:
             block.collect_params().reset_ctx(self.dev)
 
         """ Trainer """
+        self.G_params = param_dicts_merge(
+                            self.genA2B.collect_params(),
+                            self.genB2A.collect_params(),
+                        )
         self.G_optim = gluon.Trainer(
-                param_dicts_merge(
-                    self.genA2B.collect_params(),
-                    self.genB2A.collect_params(),
-                    ),
+                self.G_params,
                 'adam',
                 dict(learning_rate=self.lr, beta1=0.5, beta2=0.999, wd=self.weight_decay),
                )
+        self.D_params = param_dicts_merge(
+                            self.disGA.collect_params(),
+                            self.disGB.collect_params(),
+                            self.disLA.collect_params(),
+                            self.disLB.collect_params()
+                        )
         self.D_optim = gluon.Trainer(
-                param_dicts_merge(
-                    self.disGA.collect_params(),
-                    self.disGB.collect_params(),
-                    self.disLA.collect_params(),
-                    self.disLB.collect_params()
-                    ),
+                self.D_params,
                 'adam',
                 dict(learning_rate=self.lr, beta1=0.5, beta2=0.999, wd=self.weight_decay),
                 )
@@ -191,8 +193,9 @@ class UGATIT:
             real_A = real_A.as_in_context(self.dev)
             real_B = real_B.as_in_context(self.dev)
 
+            # Update D
+            self.D_params.zero_grad()
             with autograd.record():
-                # Update D
                 fake_A2B, _, _ = self.genA2B(real_A)
                 fake_B2A, _, _ = self.genB2A(real_B)
 
@@ -222,9 +225,9 @@ class UGATIT:
                 Discriminator_loss.backward()
             self.D_optim.step(1)
 
+            # Update G
+            self.G_params.zero_grad()
             with autograd.record():
-                # Update G
-
                 fake_A2B, fake_A2B_cam_logit, _ = self.genA2B(real_A)
                 fake_B2A, fake_B2A_cam_logit, _ = self.genB2A(real_B)
 
