@@ -178,6 +178,7 @@ class UGATIT:
             if self.decay_flag and step > (self.iteration // 2):
                 self.G_optim.set_learning_rate(self.G_optim.learning_rate - self.lr / (self.iteration // 2))
                 self.D_optim.set_learning_rate(self.D_optim.learning_rate - self.lr / (self.iteration // 2))
+                print('Set Learning rate: G: {.8f}, D: {.8f}'.format(self.G_optim.learning_rate, self.D_optim.learning_rate))
 
             try:
                 real_A, _ = next(trainA_iter)
