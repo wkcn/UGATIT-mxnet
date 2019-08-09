@@ -95,12 +95,12 @@ class ResnetGenerator(nn.HybridBlock):
     def hybrid_forward(self, F, input):
         x = self.DownBlock(input)
 
-        gap = F.Pooling(x, pool_type='avg', global_pool=True)
+        gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
         gap_logit = self.gap_fc(gap.reshape((x.shape[0], -1)))
         gap_weight = self.gap_fc.weight.data()
         gap = x * gap_weight.reshape((0, 0, 1, 1))
 
-        gmp = F.Pooling(x, pool_type='max', global_pool=True)
+        gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
         gmp_logit = self.gmp_fc(gmp.reshape((x.shape[0], -1)))
         gmp_weight = self.gmp_fc.weight.data()
         gmp = x * gmp_weight.reshape((0, 0, 1, 1))
@@ -112,7 +112,7 @@ class ResnetGenerator(nn.HybridBlock):
         heatmap = F.sum(x, axis=1, keepdims=True)
 
         if self.light:
-            x_ = F.Pooling(x, pool_type='avg', global_pool=True)
+            x_ = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
             x_ = self.FC(x_.reshape((x_.shape[0], -1)))
         else:
             x_ = self.FC(x.reshape((x.shape[0], -1)))
@@ -296,12 +296,12 @@ class Discriminator(nn.HybridBlock):
     def hybrid_forward(self, F, input):
         x = self.model(input)
 
-        gap = F.Pooling(x, pool_type='avg', global_pool=True)
+        gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
         gap_logit = self.gap_fc(gap.reshape((x.shape[0], -1)))
         gap_weight = self.gap_fc.weight.data()
         gap = x * gap_weight.reshape((0, 0, 1, 1))
 
-        gmp = F.Pooling(x, pool_type='max', global_pool=True)
+        gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
         gmp_logit = self.gmp_fc(gmp.reshape((x.shape[0], -1)))
         gmp_weight = self.gmp_fc.weight.data()
         gmp = x * gmp_weight.reshape((0, 0, 1, 1))
