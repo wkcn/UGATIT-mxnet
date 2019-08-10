@@ -3,17 +3,17 @@ import mxnet as mx
 from mxnet import autograd
 from mxnet.gluon import nn
 
-EPSILON = 1e-08
-POWER_ITERATION = 1
 
 def normalize(x, dim, eps):
     norm = x.norm(axis=dim, keepdims=True)
     return x / mx.nd.maximum(norm, eps)
 
+
 @mx.init.register
 class SNUVInit(mx.init.Initializer):
     def __init__(self):
         super(SNUVInit, self).__init__()
+
     def _init_weight(self, name, arr):
         arr[:] = normalize(
             mx.random.normal(shape=arr.shape, dtype=arr.dtype),
@@ -21,43 +21,97 @@ class SNUVInit(mx.init.Initializer):
             eps=1e-12
         )
 
-def _register_spectral_norm(name, cls):
 
+class SpectralNormWeight(mx.operator.CustomOp):
+    def __init__(self, num_iter, eps):
+        super(SpectralNormWeight, self).__init__()
+        self.num_iter = num_iter
+        self.eps = eps
+
+    def forward(self, is_train, req, in_data, out_data, aux):
+        weight = in_data[0]
+        self.weight = weight
+        state_u, state_v = aux
+        if is_train:
+            weight.attach_grad()
+        weight_mat = weight.flatten()
+        for _ in range(self.num_iter):
+            state_v[:] = normalize(
+                mx.nd.dot(weight_mat.transpose(), state_u), dim=0, eps=self.eps)
+            state_u[:] = normalize(
+                mx.nd.dot(weight_mat, state_v), dim=0, eps=self.eps)
+        with autograd.record(is_train):
+            sigma = mx.nd.dot(state_u, mx.nd.dot(weight_mat, state_v))
+            norm_weight = mx.nd.broadcast_div(weight, sigma)
+            self.norm_weight = norm_weight
+        # return norm weight
+        out_data[0][:] = norm_weight
+
+    def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
+        self.norm_weight.backward(out_grad[0])
+        self.assign(in_grad[0], req[0], self.weight.grad)
+
+
+@mx.operator.register('SpectralNormWeight')
+class SpectralNormWeightProp(mx.operator.CustomOpProp):
+    def __init__(self, num_iter=1, eps=1e-12):
+        super(SpectralNormWeightProp, self).__init__(need_top_grad=True)
+        self.num_iter = num_iter
+        self.eps = eps
+
+    def list_arguments(self):
+        return ['weight']
+
+    def list_outputs(self):
+        return ['norm_weight']
+
+    def infer_shape(self, in_shape):
+        assert len(in_shape) == 1, len(in_shape)
+        shape = in_shape[0]
+        nw = np.prod(shape[1:]) if len(shape) > 1 else 1
+        aux_shape = [(shape[0], ), (nw, )]
+        return in_shape, in_shape, aux_shape
+
+    def infer_type(self, in_type):
+        dtype = in_type[0]
+        return in_type, in_type, [dtype, dtype]
+
+    def list_arguments(self):
+        return ['weight']
+
+    def list_auxiliary_states(self):
+        return ['state_u', 'state_v']
+
+    def create_operator(self, ctx, shapes, dtypes):
+        return SpectralNormWeight(self.num_iter, self.eps)
+
+
+def _register_spectral_norm(name, cls):
     def __init__(self, *args, **kwargs):
         self._parent_cls = super(self.__class__, self)
         self._parent_cls.__init__(*args, **kwargs)
-        self.iterations = POWER_ITERATION
-        self.eps = 1e-12
         shape = self.weight.shape
         nw = np.prod(shape[1:]) if len(shape) > 1 else 1
-        self.weight_u = self.params.get('weight_u', init=SNUVInit(), shape=(shape[0], ))
-        self.weight_v = self.params.get('weight_v', init=SNUVInit(), shape=(nw,))
+        self.state_u = self.params.get(
+            'state_u', grad_req='null', init=SNUVInit(), shape=(shape[0], ))
+        self.state_v = self.params.get(
+            'state_v', grad_req='null', init=SNUVInit(), shape=(nw,))
 
-    def forward(self, x): #, weight, bias, extra_u):
-        F = mx.nd
-        weight = self.weight.data()
-        weight_mat = weight.flatten()
-        bias = self.bias.data() if self.bias is not None else None
-        u = self.weight_u.data()
-        v = self.weight_v.data()
-        with autograd.pause():
-            for _ in range(POWER_ITERATION):
-                v[:] = normalize(mx.nd.dot(weight_mat.transpose(), u), dim=0, eps=self.eps)
-                u[:] = normalize(mx.nd.dot(weight_mat, v), dim=0, eps=self.eps)
-        sigma = mx.nd.dot(u, mx.nd.dot(weight_mat, v))
-        weight = weight / sigma
+    def hybrid_forward(self, F, x, weight, bias=None, state_u=None, state_v=None):
+        norm_weight = F.Custom(weight, state_u, state_v,
+                               op_type='SpectralNormWeight')
         if bias is not None:
-            return self._parent_cls.hybrid_forward(F, x, weight, bias)
+            return self._parent_cls.hybrid_forward(F, x, norm_weight, bias)
         else:
-            return self._parent_cls.hybrid_forward(F, x, weight)
+            return self._parent_cls.hybrid_forward(F, x, norm_weight)
 
     inst_dict = dict(
         __init__=__init__,
-        # hybrid_forward=hybrid_forward
-        forward=forward,
+        hybrid_forward=hybrid_forward
     )
     inst = type(name, (cls, ), inst_dict)
     globals()[name] = inst
+
 
 _register_spectral_norm('SNConv2D', nn.Conv2D)
 _register_spectral_norm('SNDense', nn.Dense)
@@ -71,18 +125,21 @@ if __name__ == '__main__':
     channels = 2
     kernel_size = (2, 2)
     N, C, H, W = 1, 1, 3, 3
-    conv_mx = SNConv2D(channels=channels, kernel_size=kernel_size, use_bias=False, in_channels=C)
+    conv_mx = SNConv2D(channels=channels,
+                       kernel_size=kernel_size, use_bias=False, in_channels=C)
     data_np = np.random.normal(size=(N, C, H, W)).astype('float32')
-    weight_np = np.random.normal(size=(channels, C) + kernel_size).astype('float32')
-    data_mx = mx.nd.array(data_np) 
-    weight_mx = mx.nd.array(weight_np) 
+    weight_np = np.random.normal(
+        size=(channels, C) + kernel_size).astype('float32')
+    data_mx = mx.nd.array(data_np)
+    weight_mx = mx.nd.array(weight_np)
     conv_mx.initialize()
     conv_mx.weight.data()[:] = weight_mx
     lr = 1e-2
     wd = 0.9
-    trainer_mx = mx.gluon.Trainer(conv_mx.collect_params(), 'adam', dict(learning_rate=lr, beta1=0.5, beta2=0.999, wd=wd))
+    trainer_mx = mx.gluon.Trainer(conv_mx.collect_params(), 'adam', dict(
+        learning_rate=lr, beta1=0.5, beta2=0.999, wd=wd))
     target = 10
-    iters = 4
+    iters = 5
     for _ in range(iters):
         with mx.autograd.record():
             out_mx = conv_mx(data_mx)
@@ -90,14 +147,17 @@ if __name__ == '__main__':
             loss_mx = (target - sum_mx).square()
             loss_mx.backward()
         trainer_mx.step(1)
-        print(out_mx, "KS")#, conv_mx.weight.data(), "U", conv_mx.weight_u.data(), conv_mx.weight_v.data())
+        # , conv_mx.weight.data(), "U", conv_mx.weight_u.data(), conv_mx.weight_v.data())
+        print(out_mx, "KS")
 
     print('-----------------------')
 
-    conv_th = tnn.utils.spectral_norm(tnn.Conv2d(C, channels, kernel_size=kernel_size, bias=False)) 
+    conv_th = tnn.utils.spectral_norm(tnn.Conv2d(
+        C, channels, kernel_size=kernel_size, bias=False))
     conv_th.weight_orig.data = torch.tensor(weight_np)
     data_th = torch.tensor(data_np)
-    trainer_th = torch.optim.Adam(conv_th.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=wd)
+    trainer_th = torch.optim.Adam(
+        conv_th.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=wd)
     for _ in range(iters):
         trainer_th.zero_grad()
         out_th = conv_th(data_th)
@@ -105,4 +165,5 @@ if __name__ == '__main__':
         loss_th = (target - sum_th) ** 2
         loss_th.backward()
         trainer_th.step()
-        print(out_th, "KS")#, conv_th.weight.data, "U", conv_th.weight_u, conv_th.weight_v)
+        # , conv_th.weight.data, "U", conv_th.weight_u, conv_th.weight_v)
+        print(out_th, "KS")
