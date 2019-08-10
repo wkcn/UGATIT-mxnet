@@ -199,6 +199,7 @@ class UGATIT:
                 print('Set Learning rate: G: {.8f}, D: {.8f}'.format(
                     self.G_optim.learning_rate, self.D_optim.learning_rate))
 
+            data_tic = time.time()
             try:
                 real_A, _ = next(trainA_iter)
             except:
@@ -212,6 +213,7 @@ class UGATIT:
                 real_B, _ = next(trainB_iter)
             real_A = real_A.as_in_context(self.dev)
             real_B = real_B.as_in_context(self.dev)
+            data_time = time.time() - data_tic
 
             # Update D
             self.D_params.zero_grad()
@@ -318,8 +320,12 @@ class UGATIT:
             self.genB2A.apply(self.Rho_clipper)
 
             mx.nd.waitall()
-            print("[%5d/%5d] time: %4.4f d_loss: %.8f, g_loss: %.8f" % (step, self.iteration,
-                                                                        time.time() - start_time, Discriminator_loss.asscalar(), Generator_loss.asscalar()))
+            print("[%5d/%5d] time: %.4f data_time: %.4f, d_loss: %.8f, g_loss: %.8f" % (
+                  step, self.iteration,
+                  data_time,
+                  time.time() - start_time,
+                  Discriminator_loss.asscalar(),
+                  Generator_loss.asscalar()))
 
             if step % self.print_freq == 0:
                 train_sample_num = 5
