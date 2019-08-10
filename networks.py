@@ -275,12 +275,12 @@ class Discriminator(nn.HybridBlock):
         gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
         gap_logit = self.gap_fc(gap.reshape((0, -1)))
         gap_weight = self.gap_fc._weight
-        gap = x * gap_weight.reshape((0, 0, 1, 1))
+        gap = F.broadcast_mul(x, gap_weight.reshape((0, 0, 1, 1)))
 
         gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
         gmp_logit = self.gmp_fc(gmp.reshape((0, -1)))
         gmp_weight = self.gmp_fc._weight
-        gmp = x * gmp_weight.reshape((0, 0, 1, 1))
+        gmp = F.broadcast_mul(x, gmp_weight.reshape((0, 0, 1, 1)))
 
         cam_logit = F.concat(*[gap_logit, gmp_logit], dim=1)
         x = F.concat(*[gap, gmp], dim=1)

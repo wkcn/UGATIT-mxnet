@@ -134,8 +134,6 @@ class UGATIT:
         self.whole_model.add(
             *[self.genA2B, self.genB2A, self.disGA, self.disGB, self.disLA, self.disLB])
 
-        # self.genA2B.hybridize()
-        # self.genB2A.hybridize()
         self.whole_model.hybridize()
 
         """ Define Loss """
@@ -152,6 +150,7 @@ class UGATIT:
             block.collect_params('.*?_rho').initialize()
             block.collect_params('.*?_gamma').initialize()
             block.collect_params('.*?_beta').initialize()
+            block.collect_params('.*?_state_.*?').initialize()
             block.collect_params().reset_ctx(self.dev)
 
         """ Trainer """
