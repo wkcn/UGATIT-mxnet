@@ -30,10 +30,10 @@ class SpectralNormWeight(mx.operator.CustomOp):
 
     def forward(self, is_train, req, in_data, out_data, aux):
         weight = in_data[0]
-        self.weight = weight
         state_u, state_v = aux
         if is_train:
-            weight.attach_grad()
+            self.weight_grad = [mx.nd.empty(weight.shape)]
+            autograd.mark_variables([weight], self.weight_grad, 'write')
         weight_mat = weight.flatten()
         for _ in range(self.num_iter):
             state_v[:] = normalize(
@@ -49,7 +49,8 @@ class SpectralNormWeight(mx.operator.CustomOp):
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
         self.norm_weight.backward(out_grad[0])
-        self.assign(in_grad[0], req[0], self.weight.grad)
+        self.assign(in_grad[0], req[0], self.weight_grad[0])
+        del self.norm_weight, self.weight_grad
 
 
 @mx.operator.register('SpectralNormWeight')
