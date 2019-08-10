@@ -36,6 +36,7 @@ class UGATIT:
 
         self.result_dir = args.result_dir
         self.dataset = args.dataset
+        self.num_workers = args.num_workers
 
         self.iteration = args.iteration
         self.decay_flag = args.decay_flag
@@ -114,9 +115,9 @@ class UGATIT:
         self.testB = ImageFolder(os.path.join(
             'dataset', self.dataset, 'testB'), test_transform)
         self.trainA_loader = DataLoader(
-            self.trainA, batch_size=self.batch_size, shuffle=True)
+            self.trainA, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
         self.trainB_loader = DataLoader(
-            self.trainB, batch_size=self.batch_size, shuffle=True)
+            self.trainB, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
         self.testA_loader = DataLoader(self.testA, batch_size=1, shuffle=False)
         self.testB_loader = DataLoader(self.testB, batch_size=1, shuffle=False)
 
@@ -134,7 +135,7 @@ class UGATIT:
         self.whole_model.add(
             *[self.genA2B, self.genB2A, self.disGA, self.disGB, self.disLA, self.disLB])
 
-        self.whole_model.hybridize()
+        self.whole_model.hybridize(static_alloc=False, static_shape=False)
 
         """ Define Loss """
         self.L1_loss = gloss.L1Loss()
