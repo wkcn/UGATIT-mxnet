@@ -1,37 +1,23 @@
 import mxnet as mx
 import numpy as np
+import mxnet_hack
 from mxnet import autograd
 from mxnet.gluon import nn
 from spectral_norm import SNConv2D, SNDense
 
 def var(x, dim, keepdims=False, unbiased=True):
-    s = (x - x.mean(dim, keepdims=True)).square().sum(dim, keepdims=keepdims)
+    F = mx.nd if isinstance(x, mx.nd.NDArray) else mx.sym
+    s = F.broadcast_sub(x, x.mean(dim, keepdims=True)).square().sum(dim, keepdims=keepdims)
     with autograd.pause():
         shape = x.shape_array()
         if isinstance(dim, (list, tuple)):
-            n = mx.nd.prod(mx.nd.concat(*[shape[d] for d in dim], dim=0))
+            n = F.prod(F.concat(*[shape[d] for d in dim], dim=0))
         else:
             n = shape[dim]
         if unbiased:
             n = n - 1
-        if isinstance(n, mx.nd.NDArray):
-            F = mx.nd
-        else:
-            F = mx.sym
         n = F.cast(n, np.float32)
-    return s / n
-
-def _register_record_hook(cls):
-    def _hybrid_forward(self, F, x, weight, bias=None):
-        self._weight = weight
-        self._bias = bias
-        self._old_hybrid_forward(F, x, weight, bias)
-    cls._old_hybrid_forward = cls.hybrid_forward
-    cls.hybrid_forward = _hybrid_forward
-
-_register_record_hook(nn.Dense)
-_register_record_hook(nn.Conv2D)
-
+    return F.broadcast_div(s, n)
 
 class ResnetGenerator(nn.HybridBlock):
     def __init__(self, input_nc, output_nc, ngf=64, n_blocks=6, img_size=256, light=False):
@@ -110,12 +96,12 @@ class ResnetGenerator(nn.HybridBlock):
         gap = F.Pooling(x, kernel=(1, 1), pool_type='avg', global_pool=True)
         gap_logit = self.gap_fc(gap.reshape((0, -1)))
         gap_weight = self.gap_fc._weight
-        gap = x * gap_weight.reshape((0, 0, 1, 1))
+        gap = F.broadcast_mul(x, gap_weight.reshape((0, 0, 1, 1)))
 
         gmp = F.Pooling(x, kernel=(1, 1), pool_type='max', global_pool=True)
         gmp_logit = self.gmp_fc(gmp.reshape((0, -1)))
         gmp_weight = self.gmp_fc._weight
-        gmp = x * gmp_weight.reshape((0, 0, 1, 1))
+        gmp = F.broadcast_mul(x, gmp_weight.reshape((0, 0, 1, 1)))
 
         cam_logit = F.concat(*[gap_logit, gmp_logit], dim=1)
         x = F.concat(*[gap, gmp], dim=1)
@@ -129,7 +115,6 @@ class ResnetGenerator(nn.HybridBlock):
         else:
             x_ = self.FC(x.reshape((0, -1)))
         gamma, beta = self.gamma(x_), self.beta(x_)
-
 
         for block in self.UpBlock1s:
             x = block(x, gamma, beta)
@@ -192,12 +177,12 @@ class adaILN(nn.HybridBlock):
     def hybrid_forward(self, F, input, gamma, beta, rho):
         # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
         in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(var(input, 2, keepdims=True), 3, keepdims=True)
-        out_in = (input - in_mean) / F.sqrt(in_var + self.eps)
+        out_in = F.broadcast_div(F.broadcast_sub(input, in_mean), F.sqrt(in_var + self.eps))
         # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
         ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
-        out_ln = (input - ln_mean) / F.sqrt(ln_var + self.eps)
-        out = rho * out_in + (1 - rho) * out_ln
-        out = out * gamma.reshape((0, 0, 1, 1)) + beta.reshape((0, 0, 1, 1))
+        out_ln = F.broadcast_div(F.broadcast_sub(input, ln_mean), F.sqrt(ln_var + self.eps))
+        out = F.broadcast_mul(rho, out_in) + F.broadcast_mul((1 - rho), out_ln)
+        out = F.broadcast_add(F.broadcast_mul(out, gamma.reshape((0, 0, 1, 1))), beta.reshape((0, 0, 1, 1)))
 
         return out
 
@@ -213,12 +198,12 @@ class ILN(nn.HybridBlock):
     def hybrid_forward(self, F, input, rho, gamma, beta):
         in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(var(input, 2, keepdims=True), 3, keepdims=True)
         # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
-        out_in = (input - in_mean) / F.sqrt(in_var + self.eps)
+        out_in = F.broadcast_div(F.broadcast_sub(input, in_mean), F.sqrt(in_var + self.eps))
         ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
         # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
-        out_ln = (input - ln_mean) / F.sqrt(ln_var + self.eps)
-        out = rho * out_in + (1 - rho) * out_ln
-        out = out * gamma + beta
+        out_ln = F.broadcast_div(F.broadcast_sub(input, ln_mean), F.sqrt(ln_var + self.eps))
+        out = F.broadcast_mul(rho, out_in) + F.broadcast_mul((1 - rho), out_ln)
+        out = F.broadcast_add(F.broadcast_mul(out, gamma), beta)
 
         return out
 
