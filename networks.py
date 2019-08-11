@@ -37,7 +37,7 @@ class ResnetGenerator(nn.HybridBlock):
         DownBlock += [nn.ReflectionPad2D(3),
                       nn.Conv2D(ngf, kernel_size=7, strides=1,
                                 padding=0, use_bias=False),
-                      nn.InstanceNorm(),
+                      nn.InstanceNorm(center=False),
                       nn.Activation('relu')]
 
         # Down-Sampling
@@ -47,7 +47,7 @@ class ResnetGenerator(nn.HybridBlock):
             DownBlock += [nn.ReflectionPad2D(1),
                           nn.Conv2D(ngf * mult * 2, kernel_size=3,
                                     strides=2, padding=0, use_bias=False),
-                          nn.InstanceNorm(),
+                          nn.InstanceNorm(center=False),
                           nn.Activation('relu')]
 
         # Down-Sampling Bottleneck
@@ -138,13 +138,13 @@ class ResnetBlock(nn.HybridBlock):
         conv_block += [nn.ReflectionPad2D(1),
                        nn.Conv2D(dim, kernel_size=3, strides=1,
                                  padding=0, use_bias=use_bias),
-                       nn.InstanceNorm(),
+                       nn.InstanceNorm(center=False),
                        nn.Activation('relu')]
 
         conv_block += [nn.ReflectionPad2D(1),
                        nn.Conv2D(dim, kernel_size=3, strides=1,
                                  padding=0, use_bias=use_bias),
-                       nn.InstanceNorm()]
+                       nn.InstanceNorm(center=False)]
 
         self.conv_block = nn.HybridSequential()
         self.conv_block.add(*conv_block)

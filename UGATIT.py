@@ -26,6 +26,11 @@ def param_dicts_merge(*args):
     return pdict
 
 
+def force_init(params, init):
+    for _, v in params.items():
+        v.initialize(init, None, init, force_reinit=True)
+
+
 class UGATIT:
     def __init__(self, args):
         self.light = args.light
@@ -148,15 +153,14 @@ class UGATIT:
         params = self.whole_model.collect_params()
         block = self.whole_model
         if not self.debug:
-            block.collect_params('.*?_weight').initialize(KaimingUniform())
-            block.collect_params(
-                '.*?_bias').initialize(BiasInitializer(params))
+            force_init(block.collect_params('.*?_weight'), KaimingUniform())
+            force_init(block.collect_params('.*?_bias'), BiasInitializer(params))
             block.collect_params('.*?_rho').initialize()
             block.collect_params('.*?_gamma').initialize()
             block.collect_params('.*?_beta').initialize()
             block.collect_params('.*?_state_.*?').initialize()
         else:
-            block.collect_params().initialize(mx.init.Constant(1), force_reinit=True)
+            pass
         block.collect_params().reset_ctx(self.dev)
 
         """ Trainer """
@@ -223,6 +227,7 @@ class UGATIT:
             # Update D
             self.D_params.zero_grad()
             with autograd.record():
+
                 fake_A2B, _, _ = self.genA2B(real_A)
                 fake_B2A, _, _ = self.genB2A(real_B)
 
