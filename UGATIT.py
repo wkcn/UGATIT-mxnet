@@ -394,7 +394,7 @@ class UGATIT:
                         real_A, _ = next(testA_iter)
                     except:
                         testA_iter = iter(self.testA_loader)
-                        real_A, _ = testA_iter.next()
+                        real_A, _ = next(testA_iter)
 
                     try:
                         real_B, _ = next(testB_iter)
