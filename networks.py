@@ -59,7 +59,7 @@ class ResnetGenerator(nn.HybridBlock):
         self.gap_fc = nn.Dense(1, use_bias=False)
         self.gmp_fc = nn.Dense(1, use_bias=False)
         self.conv1x1 = nn.Conv2D(
-            ngf * mult, kernel_size=1, strides=1, use_bias=True, in_channels=ndf * mult * 2)
+            ngf * mult, kernel_size=1, strides=1, use_bias=True, in_channels=ngf * mult * 2)
         self.relu = nn.Activation('relu')
 
         # Gamma, Beta block
