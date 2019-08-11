@@ -18,6 +18,10 @@ from networks import *
 from utils import *
 from initializer import KaimingUniform, BiasInitializer
 
+def set_seed(a):
+    random.seed(a)
+    np.random.seed(a)
+    mx.random.seed(a)
 
 def param_dicts_merge(*args):
     pdict = gluon.parameter.ParameterDict()
@@ -33,6 +37,8 @@ def force_init(params, init):
 
 class UGATIT:
     def __init__(self, args):
+        set_seed(args.seed)
+
         self.light = args.light
 
         if self.light:

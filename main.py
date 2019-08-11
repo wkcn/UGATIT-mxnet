@@ -26,6 +26,8 @@ def parse_args():
                         help='The number of model save freq')
     parser.add_argument('--decay_flag', type=bool,
                         default=True, help='The decay_flag')
+    parser.add_argument('--seed', type=int,
+                        default=42, help='Random Seed')
 
     parser.add_argument('--lr', type=float, default=0.0001,
                         help='The learning rate')
