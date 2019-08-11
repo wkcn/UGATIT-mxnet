@@ -2,7 +2,6 @@ import mxnet as mx
 import numpy as np
 from mxnet import gluon, autograd
 from mxnet.gluon import nn
-from mxnet.gluon import loss as gloss
 from mxnet.gluon.data.vision import transforms
 from mxnet.gluon.data.dataloader import DataLoader
 
@@ -13,6 +12,7 @@ import logging
 import random
 import time
 
+import myloss
 from dataset import ImageFolder
 from networks import *
 from utils import *
@@ -145,9 +145,9 @@ class UGATIT:
         self.whole_model.hybridize(static_alloc=False, static_shape=False)
 
         """ Define Loss """
-        self.L1_loss = gloss.L1Loss()
-        self.MSE_loss = gloss.L2Loss()
-        self.BCE_loss = gloss.SigmoidBCELoss()
+        self.L1_loss = myloss.L1Loss()
+        self.MSE_loss = myloss.L2Loss()
+        self.BCE_loss = myloss.SigmoidBCELoss()
 
         """ Initialize Parameters"""
         params = self.whole_model.collect_params()
