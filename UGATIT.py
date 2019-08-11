@@ -322,8 +322,8 @@ class UGATIT:
             mx.nd.waitall()
             print("[%5d/%5d] time: %.4f data_time: %.4f, d_loss: %.8f, g_loss: %.8f" % (
                   step, self.iteration,
-                  data_time,
                   time.time() - start_time,
+                  data_time,
                   Discriminator_loss.asscalar(),
                   Generator_loss.asscalar()))
 
