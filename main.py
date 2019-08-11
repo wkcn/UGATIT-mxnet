@@ -59,6 +59,7 @@ def parse_args():
                         help='The ID of the used GPU')
     parser.add_argument('--benchmark_flag', type=bool, default=True)
     parser.add_argument('--resume', type=str, default=False)
+    parser.add_argument('--debug', type=bool, default=True)
 
     return check_args(parser.parse_args())
 

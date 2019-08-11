@@ -8,6 +8,7 @@ from mxnet.gluon.data.dataloader import DataLoader
 
 
 import os
+import sys
 import logging
 import random
 import time
@@ -68,6 +69,7 @@ class UGATIT:
         self.dev = mx.cpu() if self.device == 'cpu' else mx.gpu(args.gpu)
         self.benchmark_flag = args.benchmark_flag
         self.resume = args.resume
+        self.debug = args.debug
 
         if not self.benchmark_flag:
             os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
@@ -144,7 +146,8 @@ class UGATIT:
 
         """ Initialize Parameters"""
         params = self.whole_model.collect_params()
-        for block in self.whole_model:
+        block = self.whole_model
+        if not self.debug:
             block.collect_params('.*?_weight').initialize(KaimingUniform())
             block.collect_params(
                 '.*?_bias').initialize(BiasInitializer(params))
@@ -152,7 +155,9 @@ class UGATIT:
             block.collect_params('.*?_gamma').initialize()
             block.collect_params('.*?_beta').initialize()
             block.collect_params('.*?_state_.*?').initialize()
-            block.collect_params().reset_ctx(self.dev)
+        else:
+            block.collect_params().initialize(mx.init.Constant(1), force_reinit=True)
+        block.collect_params().reset_ctx(self.dev)
 
         """ Trainer """
         self.G_params = param_dicts_merge(
