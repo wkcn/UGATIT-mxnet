@@ -14,7 +14,8 @@ def parse_args():
                         help='[U-GAT-IT full version / U-GAT-IT light version]')
     parser.add_argument('--dataset', type=str,
                         default='YOUR_DATASET_NAME', help='dataset_name')
-    parser.add_argument('--num-workers', type=int, default=0, help='the number of dataloader workers')
+    parser.add_argument('--num-workers', type=int, default=0,
+                        help='the number of dataloader workers')
     parser.add_argument('--iteration', type=int, default=1000000,
                         help='The number of training iterations')
     parser.add_argument('--batch_size', type=int, default=1,

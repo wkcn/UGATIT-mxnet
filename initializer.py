@@ -39,6 +39,7 @@ class BiasInitializer(mx.initializer.Initializer):
         hw_scale = 1.
         if len(shape) > 2:
             hw_scale = np.prod(shape[2:])
+        assert hw_scale > 0
         fan_in, fan_out = shape[1] * hw_scale, shape[0] * hw_scale
         bound = 1. / math.sqrt(fan_in)
         mx.random.uniform(-bound, bound, out=arr)

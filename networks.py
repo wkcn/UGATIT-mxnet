@@ -36,7 +36,7 @@ class ResnetGenerator(nn.HybridBlock):
         DownBlock = []
         DownBlock += [nn.ReflectionPad2D(3),
                       nn.Conv2D(ngf, kernel_size=7, strides=1,
-                                padding=0, use_bias=False),
+                                padding=0, use_bias=False, in_channels=input_nc),
                       nn.InstanceNorm(center=False),
                       nn.Activation('relu')]
 
@@ -46,7 +46,7 @@ class ResnetGenerator(nn.HybridBlock):
             mult = 2 ** i
             DownBlock += [nn.ReflectionPad2D(1),
                           nn.Conv2D(ngf * mult * 2, kernel_size=3,
-                                    strides=2, padding=0, use_bias=False),
+                                    strides=2, padding=0, use_bias=False, in_channels=ngf * mult),
                           nn.InstanceNorm(center=False),
                           nn.Activation('relu')]
 
@@ -59,7 +59,7 @@ class ResnetGenerator(nn.HybridBlock):
         self.gap_fc = nn.Dense(1, use_bias=False)
         self.gmp_fc = nn.Dense(1, use_bias=False)
         self.conv1x1 = nn.Conv2D(
-            ngf * mult, kernel_size=1, strides=1, use_bias=True)
+            ngf * mult, kernel_size=1, strides=1, use_bias=True, in_channels=ndf * mult * 2)
         self.relu = nn.Activation('relu')
 
         # Gamma, Beta block
@@ -82,13 +82,13 @@ class ResnetGenerator(nn.HybridBlock):
             UpBlock2 += [nn.HybridLambda(lambda F, x: F.UpSampling(x, scale=2, sample_type='nearest')),
                          nn.ReflectionPad2D(1),
                          nn.Conv2D(int(ngf * mult / 2), kernel_size=3,
-                                   strides=1, padding=0, use_bias=False),
+                                   strides=1, padding=0, use_bias=False, in_channels=ngf * mult),
                          ILN(int(ngf * mult / 2)),
                          nn.Activation('relu')]
 
         UpBlock2 += [nn.ReflectionPad2D(3),
                      nn.Conv2D(output_nc, kernel_size=7, strides=1,
-                               padding=0, use_bias=False),
+                               padding=0, use_bias=False, in_channels=ngf),
                      nn.Activation('tanh')]
 
         self.DownBlock = nn.HybridSequential()
@@ -137,13 +137,13 @@ class ResnetBlock(nn.HybridBlock):
         conv_block = []
         conv_block += [nn.ReflectionPad2D(1),
                        nn.Conv2D(dim, kernel_size=3, strides=1,
-                                 padding=0, use_bias=use_bias),
+                                 padding=0, use_bias=use_bias, in_channels=dim),
                        nn.InstanceNorm(center=False),
                        nn.Activation('relu')]
 
         conv_block += [nn.ReflectionPad2D(1),
                        nn.Conv2D(dim, kernel_size=3, strides=1,
-                                 padding=0, use_bias=use_bias),
+                                 padding=0, use_bias=use_bias, in_channels=dim),
                        nn.InstanceNorm(center=False)]
 
         self.conv_block = nn.HybridSequential()
@@ -159,13 +159,13 @@ class ResnetAdaILNBlock(nn.HybridBlock):
         super(ResnetAdaILNBlock, self).__init__()
         self.pad1 = nn.ReflectionPad2D(1)
         self.conv1 = nn.Conv2D(
-            dim, kernel_size=3, strides=1, padding=0, use_bias=use_bias)
+            dim, kernel_size=3, strides=1, padding=0, use_bias=use_bias, in_channels=dim)
         self.norm1 = adaILN(dim)
         self.relu1 = nn.Activation('relu')
 
         self.pad2 = nn.ReflectionPad2D(1)
         self.conv2 = nn.Conv2D(
-            dim, kernel_size=3, strides=1, padding=0, use_bias=use_bias)
+            dim, kernel_size=3, strides=1, padding=0, use_bias=use_bias, in_channels=dim)
         self.norm2 = adaILN(dim)
 
     def hybrid_forward(self, F, x, gamma, beta):
@@ -259,7 +259,7 @@ class Discriminator(nn.HybridBlock):
         self.gap_fc = SNDense(1, use_bias=False, in_units=ndf * mult)
         self.gmp_fc = SNDense(1, use_bias=False, in_units=ndf * mult)
         self.conv1x1 = nn.Conv2D(
-            ndf * mult, kernel_size=1, strides=1, use_bias=True)
+            ndf * mult, kernel_size=1, strides=1, use_bias=True, in_channels=ndf * mult * 2)
         self.leaky_relu = nn.LeakyReLU(0.2)
 
         self.pad = nn.ReflectionPad2D(1)

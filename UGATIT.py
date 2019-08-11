@@ -154,7 +154,8 @@ class UGATIT:
         block = self.whole_model
         if not self.debug:
             force_init(block.collect_params('.*?_weight'), KaimingUniform())
-            force_init(block.collect_params('.*?_bias'), BiasInitializer(params))
+            force_init(block.collect_params(
+                '.*?_bias'), BiasInitializer(params))
             block.collect_params('.*?_rho').initialize()
             block.collect_params('.*?_gamma').initialize()
             block.collect_params('.*?_beta').initialize()
