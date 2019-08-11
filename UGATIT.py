@@ -38,6 +38,7 @@ def force_init(params, init):
 class UGATIT:
     def __init__(self, args):
         set_seed(args.seed)
+        self.seed = args.seed
 
         self.light = args.light
 
@@ -86,6 +87,7 @@ class UGATIT:
             os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
         print("##### Information #####")
+        print("# seed : ", self.seed)
         print("# dev : ", self.dev)
         print("# light : ", self.light)
         print("# dataset : ", self.dataset)
