@@ -1,4 +1,5 @@
 import mxnet as mx
+import numpy as np
 import math
 
 
@@ -34,6 +35,7 @@ class BiasInitializer(mx.initializer.Initializer):
 
     def _init_weight(self, name, arr):
         shape = self.params[name.replace('_bias', '_weight')].shape
+        assert len(shape) >= 2, (name, shape)
         hw_scale = 1.
         if len(shape) > 2:
             hw_scale = np.prod(shape[2:])
