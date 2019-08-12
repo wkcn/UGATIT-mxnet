@@ -6,6 +6,17 @@ from mxnet.gluon import nn
 from spectral_norm import SNConv2D, SNDense
 
 
+class InstanceNorm2D(nn.HybridBlock):
+    def __init__(self, dim=None, eps=1e-5):
+        super(InstanceNorm2D, self).__init__()
+        self.eps = eps
+    def hybrid_forward(self, F, x):
+        diff = F.broadcast_sub(x, x.mean((0, 1), exclude=True, keepdims=True))
+        var = diff.square().mean((0, 1), exclude=True, keepdims=True)
+        out = F.broadcast_div(diff, ((var + self.eps).sqrt()))
+        return out
+
+
 def var(x, dim, keepdims=False, unbiased=True):
     F = mx.nd if isinstance(x, mx.nd.NDArray) else mx.sym
     s = F.broadcast_sub(x, x.mean(dim, keepdims=True)
@@ -37,7 +48,7 @@ class ResnetGenerator(nn.HybridBlock):
         DownBlock += [nn.ReflectionPad2D(3),
                       nn.Conv2D(ngf, kernel_size=7, strides=1,
                                 padding=0, use_bias=False, in_channels=input_nc),
-                      nn.InstanceNorm(center=False),
+                      InstanceNorm2D(),
                       nn.Activation('relu')]
 
         # Down-Sampling
@@ -47,7 +58,7 @@ class ResnetGenerator(nn.HybridBlock):
             DownBlock += [nn.ReflectionPad2D(1),
                           nn.Conv2D(ngf * mult * 2, kernel_size=3,
                                     strides=2, padding=0, use_bias=False, in_channels=ngf * mult),
-                          nn.InstanceNorm(center=False),
+                          InstanceNorm2D(),
                           nn.Activation('relu')]
 
         # Down-Sampling Bottleneck
@@ -138,13 +149,13 @@ class ResnetBlock(nn.HybridBlock):
         conv_block += [nn.ReflectionPad2D(1),
                        nn.Conv2D(dim, kernel_size=3, strides=1,
                                  padding=0, use_bias=use_bias, in_channels=dim),
-                       nn.InstanceNorm(center=False),
+                       InstanceNorm2D(),
                        nn.Activation('relu')]
 
         conv_block += [nn.ReflectionPad2D(1),
                        nn.Conv2D(dim, kernel_size=3, strides=1,
                                  padding=0, use_bias=use_bias, in_channels=dim),
-                       nn.InstanceNorm(center=False)]
+                       InstanceNorm2D()]
 
         self.conv_block = nn.HybridSequential()
         self.conv_block.add(*conv_block)

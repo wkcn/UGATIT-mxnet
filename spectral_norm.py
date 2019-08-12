@@ -59,8 +59,8 @@ class SpectralNormWeight(mx.operator.CustomOp):
 class SpectralNormWeightProp(mx.operator.CustomOpProp):
     def __init__(self, num_iter=1, eps=1e-12):
         super(SpectralNormWeightProp, self).__init__(need_top_grad=True)
-        self.num_iter = num_iter
-        self.eps = eps
+        self.num_iter = int(num_iter)
+        self.eps = float(eps)
 
     def list_arguments(self):
         return ['weight']
