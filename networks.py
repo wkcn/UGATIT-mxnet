@@ -7,7 +7,7 @@ from spectral_norm import SNConv2D, SNDense
 
 
 class InstanceNorm2D(nn.HybridBlock):
-    def __init__(self, dim=None, eps=1e-5):
+    def __init__(self, dim=1, eps=1e-5):
         super(InstanceNorm2D, self).__init__()
         self.eps = eps
     def hybrid_forward(self, F, x):
@@ -15,6 +15,7 @@ class InstanceNorm2D(nn.HybridBlock):
         var = diff.square().mean((0, 1), exclude=True, keepdims=True)
         out = F.broadcast_div(diff, ((var + self.eps).sqrt()))
         return out
+InstanceNorm2D = lambda dim=1, eps=1e-5: nn.InstanceNorm(axis=dim, epsilon=eps, center=False)
 
 
 def var(x, dim, keepdims=False, unbiased=True):
@@ -199,14 +200,14 @@ class adaILN(nn.HybridBlock):
             1, num_features, 1, 1), init=mx.init.Constant(0.9))
 
     def hybrid_forward(self, F, input, gamma, beta, rho):
-        # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
-        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(
-            var(input, 2, keepdims=True), 3, keepdims=True)
+        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
+        #in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(
+        #    var(input, 2, keepdims=True), 3, keepdims=True)
         out_in = F.broadcast_div(F.broadcast_sub(
             input, in_mean), F.sqrt(in_var + self.eps))
-        # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
-        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(
-            var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
+        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
+        #ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(
+        #    var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
         out_ln = F.broadcast_div(F.broadcast_sub(
             input, ln_mean), F.sqrt(ln_var + self.eps))
         out = F.broadcast_mul(rho, out_in) + F.broadcast_mul((1 - rho), out_ln)
@@ -228,14 +229,14 @@ class ILN(nn.HybridBlock):
             1, num_features, 1, 1), init=mx.init.Constant(0.0))
 
     def hybrid_forward(self, F, input, rho, gamma, beta):
-        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(
-            var(input, 2, keepdims=True), 3, keepdims=True)
-        # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
+        # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(
+        #    var(input, 2, keepdims=True), 3, keepdims=True)
+        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
         out_in = F.broadcast_div(F.broadcast_sub(
             input, in_mean), F.sqrt(in_var + self.eps))
-        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(
-            var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
-        # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
+        #ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(
+        #    var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
+        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
         out_ln = F.broadcast_div(F.broadcast_sub(
             input, ln_mean), F.sqrt(ln_var + self.eps))
         out = F.broadcast_mul(rho, out_in) + F.broadcast_mul((1 - rho), out_ln)
