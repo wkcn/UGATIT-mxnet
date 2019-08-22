@@ -103,6 +103,8 @@ def _register_spectral_norm(name, cls):
     def hybrid_forward(self, F, x, weight, bias=None, state_u=None, state_v=None):
         norm_weight = F.Custom(weight, state_u, state_v,
                                op_type='SpectralNormWeight')
+        if getattr(mx, 'debug_spnorm', False):
+            norm_weight = weight
         if bias is not None:
             return self._parent_cls.hybrid_forward(F, x, norm_weight, bias)
         else:
