@@ -2,11 +2,13 @@ import numpy as np
 import mxnet as mx
 from mxnet import autograd
 from mxnet.gluon import nn
+from mxnet.gluon import Parameter
 
 
-def normalize(x, dim, eps):
+def normalize(x, dim=1, eps=1e-12, out=None):
     norm = x.norm(axis=dim, keepdims=True)
-    return x / mx.nd.maximum(norm, eps)
+    mx.nd._internal._maximum_scalar(norm, eps, out=norm)
+    return mx.nd.broadcast_div(x, norm, out=out)
 
 
 @mx.init.register
@@ -31,16 +33,28 @@ class SpectralNormWeight(mx.operator.CustomOp):
     def forward(self, is_train, req, in_data, out_data, aux):
         weight = in_data[0]
         state_u, state_v = aux
-        weight_mat = weight.flatten()
-        with autograd.pause():
-            for _ in range(self.num_iter):
-                state_v[:] = normalize(
-                    mx.nd.dot(weight_mat.transpose(), state_u), dim=0, eps=self.eps)
-                state_u[:] = normalize(
-                    mx.nd.dot(weight_mat, state_v), dim=0, eps=self.eps)
+        for _ in range(self.num_iter):
+            normalize(
+                mx.nd.dot(weight, state_u, transpose_a=True), dim=0, eps=self.eps, out=state_v)
+            normalize(
+                mx.nd.dot(weight, state_v), dim=0, eps=self.eps, out=state_u)
+        sigma = mx.nd.dot(state_u, mx.nd.dot(weight, state_v))
+        self.sigma = sigma
+        mx.nd.broadcast_div(weight, sigma, out=out_data[0])
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
-        self.assigin(in_grad[0], req[0], 0)
+        if req[0] == 'null':
+            return
+        state_u, state_v = aux
+        if req[0] == 'add':
+            tmp = mx.nd.dot(state_u.reshape((-1,1)), state_v.reshape((-1,1)), transpose_b=True)
+        else:
+            tmp = in_grad[0]
+            mx.nd.dot(state_u.reshape((-1,1)), state_v.reshape((-1,1)), transpose_b=True, out=tmp)
+        tmp *= -in_data[0].sum() / (self.sigma * self.sigma)
+        tmp += 1.0 / self.sigma 
+        if req[0] == 'add':
+            in_grad[0] += tmp
 
 
 @mx.operator.register('SpectralNormWeight')
@@ -59,9 +73,9 @@ class SpectralNormWeightProp(mx.operator.CustomOpProp):
     def infer_shape(self, in_shape):
         assert len(in_shape) == 1, len(in_shape)
         shape = in_shape[0]
-        nw = np.prod(shape[1:]) if len(shape) > 1 else 1
-        aux_shape = [(shape[0], ), (nw, )]
-        return in_shape, [(1,)], aux_shape
+        assert len(in_shape[0]) == 2
+        aux_shape = [(shape[0], ), (shape[1], )]
+        return in_shape, in_shape, aux_shape
 
     def infer_type(self, in_type):
         dtype = in_type[0]
@@ -83,18 +97,14 @@ def _register_spectral_norm(name, cls):
         self._parent_cls.__init__(*args, **kwargs)
         shape = self.weight.shape
         nw = np.prod(shape[1:]) if len(shape) > 1 else 1
-        self.state_u = self.params.get(
-            'state_u', grad_req='null', init=SNUVInit(), shape=(shape[0], ))
-        self.state_v = self.params.get(
-            'state_v', grad_req='null', init=SNUVInit(), shape=(nw,))
+        self.state_u = Parameter('state_u', grad_req='null', init=SNUVInit(), shape=(shape[0], ))
+        self.state_v = Parameter('state_v', grad_req='null', init=SNUVInit(), shape=(nw,))
 
     def hybrid_forward(self, F, x, weight, bias=None, state_u=None, state_v=None):
-        # update state_u and state_v
-        F.Custom(weight, state_u, state_v,
-                 op_type='SpectralNormWeight')
-        weight_mat = weight.flatten()
-        sigma = F.dot(state_u, F.dot(weight_mat, state_v))
-        norm_weight = F.broadcast_div(weight, sigma)
+        norm_weight = F.Custom(weight.reshape((0, -1)), state_u, state_v,
+                               op_type='SpectralNormWeight').reshape_like(weight)
+        if getattr(mx, 'debug_spnorm', False):
+            norm_weight = weight
         if bias is not None:
             return self._parent_cls.hybrid_forward(F, x, norm_weight, bias)
         else:

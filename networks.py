@@ -7,7 +7,7 @@ from spectral_norm import SNConv2D, SNDense
 
 
 class InstanceNorm2D(nn.HybridBlock):
-    def __init__(self, dim=None, eps=1e-5):
+    def __init__(self, dim=1, eps=1e-5):
         super(InstanceNorm2D, self).__init__()
         self.eps = eps
     def hybrid_forward(self, F, x):
@@ -15,6 +15,7 @@ class InstanceNorm2D(nn.HybridBlock):
         var = diff.square().mean((0, 1), exclude=True, keepdims=True)
         out = F.broadcast_div(diff, ((var + self.eps).sqrt()))
         return out
+InstanceNorm2D = lambda dim=1, eps=1e-5: nn.InstanceNorm(axis=dim, epsilon=eps, center=False)
 
 
 def var(x, dim, keepdims=False, unbiased=True):
