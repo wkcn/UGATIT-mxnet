@@ -188,7 +188,7 @@ class ResnetAdaILNBlock(nn.HybridBlock):
         out = self.conv2(out)
         out = self.norm2(out, gamma, beta)
 
-        return out
+        return out + x
 
 
 class adaILN(nn.HybridBlock):
@@ -199,14 +199,10 @@ class adaILN(nn.HybridBlock):
             1, num_features, 1, 1), init=mx.init.Constant(0.9))
 
     def hybrid_forward(self, F, input, gamma, beta, rho):
-        # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
-        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(
-            var(input, 2, keepdims=True), 3, keepdims=True)
+        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
         out_in = F.broadcast_div(F.broadcast_sub(
             input, in_mean), F.sqrt(in_var + self.eps))
-        # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
-        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(
-            var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
+        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
         out_ln = F.broadcast_div(F.broadcast_sub(
             input, ln_mean), F.sqrt(ln_var + self.eps))
         out = F.broadcast_mul(rho, out_in) + F.broadcast_mul((1 - rho), out_ln)
@@ -228,14 +224,10 @@ class ILN(nn.HybridBlock):
             1, num_features, 1, 1), init=mx.init.Constant(0.0))
 
     def hybrid_forward(self, F, input, rho, gamma, beta):
-        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(
-            var(input, 2, keepdims=True), 3, keepdims=True)
-        # in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
+        in_mean, in_var = F.mean(input, (2, 3), keepdims=True), var(input, (2, 3), keepdims=True)
         out_in = F.broadcast_div(F.broadcast_sub(
             input, in_mean), F.sqrt(in_var + self.eps))
-        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(
-            var(var(input, 1, keepdims=True), 2, keepdims=True), 3, keepdims=True)
-        # ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
+        ln_mean, ln_var = F.mean(input, (1, 2, 3), keepdims=True), var(input, (1, 2, 3), keepdims=True)
         out_ln = F.broadcast_div(F.broadcast_sub(
             input, ln_mean), F.sqrt(ln_var + self.eps))
         out = F.broadcast_mul(rho, out_in) + F.broadcast_mul((1 - rho), out_ln)
